@@ -9,6 +9,8 @@ export default [
       globals: {
         __VU: 'readonly',
         __ITER: 'readonly',
+        __ENV: 'readonly',
+        console: 'readonly',
       },
     },
     rules: {
