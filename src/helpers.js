@@ -8,8 +8,8 @@ export function wait(seconds) {
   sleep(seconds);
 }
 
-export function logIfFailure(response, label = 'request') {
-  if (response.status >= 400) {
+export function logIfFailure(response, label = 'request', sampleRate = 1) {
+  if (response.status >= 400 && Math.random() < sampleRate) {
     console.log(`[${label}] status=${response.status} body=${response.body}`);
   }
 }

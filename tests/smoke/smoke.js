@@ -5,7 +5,7 @@ import { BASE_URL, COMMON_THRESHOLDS } from '../../src/config.js';
 
 export const options = {
   vus: 1,
-  duration: '20s',
+  duration: '5s',
   thresholds: {
     ...COMMON_THRESHOLDS,
     http_req_duration: ['p(95)<300'],

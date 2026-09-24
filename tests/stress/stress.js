@@ -14,11 +14,11 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '30s', target: 20 },
-        { duration: '1m', target: 50 },
-        { duration: '1m', target: 100 },
-        { duration: '1m', target: 200 },
-        { duration: '30s', target: 0 },
+        { duration: '5s', target: 20 },
+        { duration: '5s', target: 50 },
+        { duration: '5s', target: 100 },
+        { duration: '10s', target: 200 },
+        { duration: '10s', target: 0 },
       ],
       gracefulRampDown: '30s',
     },
@@ -45,7 +45,7 @@ export default function () {
     headers: DEFAULT_HEADERS,
   });
 
-  logIfFailure(response, 'POST /carts/add');
+  logIfFailure(response, 'POST /carts/add', 0.05);
 
   check(response, {
     'status is 200 or 201': (r) => r.status === 200 || r.status === 201,

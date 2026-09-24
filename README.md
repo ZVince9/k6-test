@@ -57,3 +57,239 @@ npm run format
 - HTTP latency: keep p(95) under target values for each scenario.
 - Error rate: keep failed requests under 1% in normal conditions.
 - For stress tests, more lenient error thresholds are acceptable while identifying system limits.
+
+## Step-by-step performance testing roadmap
+
+Use the following progression to expand this project safely. Do not increase traffic significantly until the earlier step produces reliable results.
+
+### Step 1: Establish a baseline
+
+Run the smoke test against a controlled staging environment:
+
+```bash
+BASE_URL=https://your-staging-api.example.com npm run test:smoke
+```
+
+Record:
+
+- p50, p95, and p99 response times
+- HTTP failure rate
+- Check success rate
+- Requests per second
+- CPU, memory, database, and connection-pool usage
+
+Treat this run as the baseline for future comparisons.
+
+### Step 2: Make checks fail the test
+
+Add a `checks` threshold to each scenario so that a technically successful HTTP response with an invalid body also fails:
+
+```js
+thresholds: {
+  checks: ['rate>0.99'],
+  http_req_failed: ['rate<0.01'],
+  http_req_duration: ['p(95)<500', 'p(99)<1000'],
+}
+```
+
+Use thresholds that reflect the actual service-level objective rather than copying values from another system.
+
+### Step 3: Build realistic user journeys
+
+Replace isolated endpoint calls with sequences that represent users, for example:
+
+1. Browse products.
+2. View product details.
+3. Log in.
+4. Add a product to a cart.
+5. View the cart.
+6. Check out.
+7. Verify the order.
+
+Use `group()` for each business step and validate both HTTP status codes and response data. A `200` response is not sufficient if the expected product, token, cart, or order is missing.
+
+### Step 4: Add endpoint and journey tags
+
+Tag requests so results can be analyzed by endpoint:
+
+```js
+http.get(`${BASE_URL}/products`, {
+  tags: { endpoint: 'products' },
+});
+```
+
+Then add focused thresholds:
+
+```js
+thresholds: {
+  'http_req_duration{endpoint:products}': ['p(95)<400'],
+  'http_req_duration{endpoint:checkout}': ['p(95)<1500'],
+  checks: ['rate>0.99'],
+}
+```
+
+### Step 5: Use realistic test data
+
+Create test users, products, search terms, cart sizes, and payloads that resemble production behavior. Avoid making every virtual user use the same account or record unless that is intentional.
+
+For larger datasets, load data once with `SharedArray`:
+
+```js
+import { SharedArray } from 'k6/data';
+
+const users = new SharedArray('users', () =>
+  JSON.parse(open('./data/users.json')),
+);
+
+export default function () {
+  const user = users[__VU % users.length];
+  // Use user credentials in the journey.
+}
+```
+
+### Step 6: Test authentication and correlation
+
+Test the complete login flow, extract the token or cookie, and use it in later requests. Extract IDs from responses and pass them to subsequent requests so the test exercises real dependencies between operations.
+
+Example:
+
+```js
+const login = http.post(
+  `${BASE_URL}/login`,
+  JSON.stringify({ username: user.username, password: user.password }),
+  { headers: { 'Content-Type': 'application/json' } },
+);
+
+const token = login.json('token');
+
+const profile = http.get(`${BASE_URL}/profile`, {
+  headers: { Authorization: 'Bearer ' + token },
+});
+```
+
+### Step 7: Add business metrics
+
+Track business outcomes separately from HTTP outcomes:
+
+- Successful checkouts
+- Failed checkouts
+- Created orders
+- Successful logins
+- Cart completion rate
+- Journey duration
+
+Use k6 `Rate`, `Counter`, and `Trend` metrics, then add thresholds such as:
+
+```js
+thresholds: {
+  checkout_success: ['rate>0.99'],
+  checkout_duration: ['p(95)<1500'],
+}
+```
+
+### Step 8: Add traffic models
+
+Keep the existing smoke, load, and stress tests, then add these scenarios:
+
+#### Baseline test
+
+One or two virtual users for a short duration to measure normal behavior.
+
+#### Average load test
+
+Expected production traffic:
+
+```text
+10 minutes ramp-up
+30 minutes at normal traffic
+10 minutes ramp-down
+```
+
+#### Peak load test
+
+Expected traffic during a sale, campaign, or other known peak.
+
+#### Spike test
+
+Rapidly increase traffic to test autoscaling, connection pools, caches, queues, and recovery:
+
+```js
+stages: [
+  { duration: '1m', target: 10 },
+  { duration: '10s', target: 200 },
+  { duration: '2m', target: 200 },
+  { duration: '10s', target: 10 },
+]
+```
+
+#### Soak test
+
+Run at normal traffic for several hours to detect memory leaks, connection leaks, queue buildup, and gradual latency degradation.
+
+#### Breakpoint test
+
+Increase traffic in controlled steps and record the maximum stable load, the first degradation point, the first error-rate increase, the failure point, and recovery behavior.
+
+### Step 9: Model users and throughput separately
+
+Use `constant-vus` when the requirement is concurrent users. Use `constant-arrival-rate` when the requirement is a known number of transactions or requests per second:
+
+```js
+export const options = {
+  scenarios: {
+    checkout_users: {
+      executor: 'constant-arrival-rate',
+      rate: 5,
+      timeUnit: '1s',
+      duration: '5m',
+      preAllocatedVUs: 10,
+      maxVUs: 50,
+      exec: 'checkout',
+    },
+  },
+};
+```
+
+Use `ramping-arrival-rate` when throughput should increase gradually.
+
+### Step 10: Monitor the system while testing
+
+Record k6 metrics together with application and infrastructure metrics:
+
+- Application latency and 4xx/5xx rates
+- CPU and memory
+- Database CPU, slow queries, locks, and connections
+- Cache hit ratio
+- Queue depth
+- Thread and connection pools
+- Garbage collection
+- Container restarts
+- Network throughput
+- Rate limiting
+
+The goal is to answer both “what did the user experience?” and “which component caused the degradation?”
+
+### Step 11: Compare performance across builds
+
+Run a short smoke or baseline test for important pull requests, larger load tests nightly, and peak or soak tests before release:
+
+```text
+Every pull request: smoke and small baseline test
+Nightly: normal load and user-journey tests
+Before release: peak, spike, soak, and breakpoint tests
+```
+
+Compare p50, p95, p99, throughput, error rate, check rate, business success rate, and resource usage. Do not rely only on average response time because averages can hide tail latency.
+
+### Recommended implementation order for this repository
+
+1. Add `checks` thresholds.
+2. Replace isolated requests with a realistic user journey.
+3. Add endpoint and group tags.
+4. Add custom business metrics.
+5. Add realistic users, products, payloads, and authentication.
+6. Add a `constant-arrival-rate` throughput test.
+7. Add spike and soak tests.
+8. Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
+9. Run tests against your own staging environment instead of `dummyjson.com`.
+10. Add CI regression thresholds and compare results between builds.
