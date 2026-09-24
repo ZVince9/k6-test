@@ -10,6 +10,10 @@ This project is organized for k6 performance testing with separate scenarios for
 │   ├── config.js
 │   └── helpers.js
 ├── tests/
+│   ├── baseline/
+│   │   └── baseline.js
+│   ├── journeys/
+│   │   └── shopping.js
 │   ├── smoke/
 │   │   └── smoke.js
 │   ├── load/
@@ -31,6 +35,15 @@ This project is organized for k6 performance testing with separate scenarios for
 ```bash
 # smoke test
 k6 run tests/smoke/smoke.js
+
+# baseline test
+BASE_URL=https://dummyjson.com npm run test:baseline
+
+# realistic shopping journey
+BASE_URL=https://dummyjson.com npm run test:journey
+
+# shopping journey under load
+BASE_URL=https://dummyjson.com npm run test:load:shopping
 
 # load test
 BASE_URL=https://dummyjson.com k6 run tests/load/load.js
@@ -80,6 +93,14 @@ Record:
 
 Treat this run as the baseline for future comparisons.
 
+This repository also provides a repeatable 30-second baseline command:
+
+```bash
+BASE_URL=https://your-staging-api.example.com npm run test:baseline
+```
+
+Save the output for each build and compare p50, p95, p99, failure rate, and throughput.
+
 ### Step 2: Make checks fail the test
 
 Add a `checks` threshold to each scenario so that a technically successful HTTP response with an invalid body also fails:
@@ -107,6 +128,22 @@ Replace isolated endpoint calls with sequences that represent users, for example
 7. Verify the order.
 
 Use `group()` for each business step and validate both HTTP status codes and response data. A `200` response is not sufficient if the expected product, token, cart, or order is missing.
+
+Run the initial DummyJSON journey with:
+
+```bash
+BASE_URL=https://dummyjson.com npm run test:journey
+```
+
+The journey uses DummyJSON for browsing, login, and cart operations. Checkout and order verification are intentionally simulated because DummyJSON does not provide persistent checkout or order endpoints. Replace those two groups when connecting the test to your own API.
+
+To run the same journey as a load test, use:
+
+```bash
+BASE_URL=https://your-staging-api.example.com npm run test:load:shopping
+```
+
+The load version ramps from 0 to 5, then 10, then 25 concurrent virtual users. It tests the same behavior as `test:journey`; only the traffic profile changes.
 
 ### Step 4: Add endpoint and journey tags
 
