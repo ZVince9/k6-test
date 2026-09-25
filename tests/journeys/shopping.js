@@ -1,4 +1,5 @@
 import http from 'k6/http';
+import { SharedArray } from 'k6/data';
 import { check, group, sleep } from 'k6';
 
 import {
@@ -6,12 +7,14 @@ import {
   COMMON_THRESHOLDS,
   DEFAULT_HEADERS,
 } from '../../src/config.js';
-import { logIfFailure } from '../../src/helpers.js';
+import { logIfFailure, randomInt, randomItem } from '../../src/helpers.js';
 
-const username = __ENV.TEST_USERNAME || 'emilys';
-const password = __ENV.TEST_PASSWORD || 'emilyspass';
+const users = new SharedArray('shopping users', () =>
+  JSON.parse(open('../../data/users.json')),
+);
 
 export function shoppingJourney() {
+  const user = users[(__VU + __ITER) % users.length];
   let productId;
   let userId;
   let token;
@@ -31,7 +34,8 @@ export function shoppingJourney() {
         Array.isArray(r.json('products')) && r.json('products').length > 0,
     });
 
-    productId = response.json('products.0.id');
+    const products = response.json('products');
+    productId = randomItem(products).id;
   });
 
   group('2. view product details', () => {
@@ -51,7 +55,10 @@ export function shoppingJourney() {
   group('3. log in', () => {
     const response = http.post(
       `${BASE_URL}/auth/login`,
-      JSON.stringify({ username, password }),
+      JSON.stringify({
+        username: user.username,
+        password: user.password,
+      }),
       {
         headers: DEFAULT_HEADERS,
         tags: { endpoint: 'login', journey: 'shopping' },
@@ -79,7 +86,7 @@ export function shoppingJourney() {
       `${BASE_URL}/carts/add`,
       JSON.stringify({
         userId,
-        products: [{ id: productId, quantity: 1 }],
+        products: [{ id: productId, quantity: randomInt(1, 3) }],
       }),
       {
         headers: authHeaders,

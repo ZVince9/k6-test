@@ -10,6 +10,7 @@ export default [
         __VU: 'readonly',
         __ITER: 'readonly',
         __ENV: 'readonly',
+        open: 'readonly',
         console: 'readonly',
       },
     },

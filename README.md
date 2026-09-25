@@ -187,9 +187,13 @@ export default function () {
 }
 ```
 
-### Step 6: Test authentication and correlation
+### Step 6: Use realistic test data, authentication, and correlation — Implemented
+
+The shopping journey now loads a shared pool of DummyJSON users from `data/users.json`, selects a different user across iterations, chooses a product from the returned product list, varies the cart quantity, and uses the login token and returned IDs in later requests.
 
 Test the complete login flow, extract the token or cookie, and use it in later requests. Extract IDs from responses and pass them to subsequent requests so the test exercises real dependencies between operations.
+
+Do not put real credentials in `data/users.json`. Use dedicated test accounts only.
 
 Example:
 
@@ -328,7 +332,7 @@ Compare p50, p95, p99, throughput, error rate, check rate, business success rate
 3. [x] Build a realistic user journey.
 4. [x] Add endpoint and journey tags.
 5. [ ] Add custom business metrics.
-6. [ ] Add realistic users, products, payloads, and authentication.
+6. [x] Add realistic users, products, payloads, and authentication.
 7. [ ] Add a `constant-arrival-rate` throughput test.
 8. [ ] Add spike and soak tests.
 9. [ ] Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
