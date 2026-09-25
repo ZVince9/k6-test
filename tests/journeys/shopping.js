@@ -20,7 +20,7 @@ export function shoppingJourney() {
   group('1. browse products', () => {
     const response = http.get(`${BASE_URL}/products?limit=10`, {
       headers: DEFAULT_HEADERS,
-      tags: { endpoint: 'products' },
+      tags: { endpoint: 'products', journey: 'shopping' },
     });
 
     logIfFailure(response, 'GET /products', 0.1);
@@ -37,7 +37,7 @@ export function shoppingJourney() {
   group('2. view product details', () => {
     const response = http.get(`${BASE_URL}/products/${productId}`, {
       headers: DEFAULT_HEADERS,
-      tags: { endpoint: 'product-details' },
+      tags: { endpoint: 'product-details', journey: 'shopping' },
     });
 
     logIfFailure(response, 'GET /products/{id}', 0.1);
@@ -54,7 +54,7 @@ export function shoppingJourney() {
       JSON.stringify({ username, password }),
       {
         headers: DEFAULT_HEADERS,
-        tags: { endpoint: 'login' },
+        tags: { endpoint: 'login', journey: 'shopping' },
       },
     );
 
@@ -83,7 +83,7 @@ export function shoppingJourney() {
       }),
       {
         headers: authHeaders,
-        tags: { endpoint: 'cart-add' },
+        tags: { endpoint: 'cart-add', journey: 'shopping' },
       },
     );
 
@@ -102,7 +102,7 @@ export function shoppingJourney() {
   group('5. view cart', () => {
     const response = http.get(`${BASE_URL}/carts/user/${userId}`, {
       headers: authHeaders,
-      tags: { endpoint: 'cart-view' },
+      tags: { endpoint: 'cart-view', journey: 'shopping' },
     });
 
     logIfFailure(response, 'GET /carts/user/{id}', 0.1);
@@ -137,6 +137,11 @@ export const options = {
   thresholds: {
     ...COMMON_THRESHOLDS,
     http_req_duration: ['p(95)<1000', 'p(99)<1500'],
+    'http_req_duration{endpoint:products}': ['p(95)<400'],
+    'http_req_duration{endpoint:product-details}': ['p(95)<400'],
+    'http_req_duration{endpoint:login}': ['p(95)<800'],
+    'http_req_duration{endpoint:cart-add}': ['p(95)<800'],
+    'http_req_duration{endpoint:cart-view}': ['p(95)<800'],
   },
 };
 

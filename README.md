@@ -75,7 +75,7 @@ npm run format
 
 Use the following progression to expand this project safely. Do not increase traffic significantly until the earlier step produces reliable results.
 
-### Step 1: Establish a baseline
+### Step 1: Establish a baseline — Implemented
 
 Run the smoke test against a controlled staging environment:
 
@@ -101,7 +101,7 @@ BASE_URL=https://your-staging-api.example.com npm run test:baseline
 
 Save the output for each build and compare p50, p95, p99, failure rate, and throughput.
 
-### Step 2: Make checks fail the test
+### Step 2: Make checks fail the test — Implemented
 
 Add a `checks` threshold to each scenario so that a technically successful HTTP response with an invalid body also fails:
 
@@ -115,7 +115,7 @@ thresholds: {
 
 Use thresholds that reflect the actual service-level objective rather than copying values from another system.
 
-### Step 3: Build realistic user journeys
+### Step 3: Build realistic user journeys — Implemented
 
 Replace isolated endpoint calls with sequences that represent users, for example:
 
@@ -145,25 +145,28 @@ BASE_URL=https://your-staging-api.example.com npm run test:load:shopping
 
 The load version ramps from 0 to 5, then 10, then 25 concurrent virtual users. It tests the same behavior as `test:journey`; only the traffic profile changes.
 
-### Step 4: Add endpoint and journey tags
+### Step 4: Add endpoint and journey tags — Implemented
 
 Tag requests so results can be analyzed by endpoint:
 
 ```js
 http.get(`${BASE_URL}/products`, {
-  tags: { endpoint: 'products' },
+  tags: { endpoint: 'products', journey: 'shopping' },
 });
 ```
 
-Then add focused thresholds:
+The shopping journey now tags each HTTP request with both `endpoint` and `journey`. Its runnable profiles also define endpoint-specific thresholds:
 
 ```js
 thresholds: {
   'http_req_duration{endpoint:products}': ['p(95)<400'],
-  'http_req_duration{endpoint:checkout}': ['p(95)<1500'],
+  'http_req_duration{endpoint:login}': ['p(95)<800'],
+  'http_req_duration{endpoint:cart-add}': ['p(95)<800'],
   checks: ['rate>0.99'],
 }
 ```
+
+Checkout and order verification currently do not have HTTP endpoint thresholds because DummyJSON does not provide real checkout or order endpoints; those steps are simulated locally.
 
 ### Step 5: Use realistic test data
 
@@ -320,13 +323,14 @@ Compare p50, p95, p99, throughput, error rate, check rate, business success rate
 
 ### Recommended implementation order for this repository
 
-1. Add `checks` thresholds.
-2. Replace isolated requests with a realistic user journey.
-3. Add endpoint and group tags.
-4. Add custom business metrics.
-5. Add realistic users, products, payloads, and authentication.
-6. Add a `constant-arrival-rate` throughput test.
-7. Add spike and soak tests.
-8. Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
-9. Run tests against your own staging environment instead of `dummyjson.com`.
-10. Add CI regression thresholds and compare results between builds.
+1. [x] Establish a repeatable baseline test.
+2. [x] Add `checks` thresholds.
+3. [x] Build a realistic user journey.
+4. [x] Add endpoint and journey tags.
+5. [ ] Add custom business metrics.
+6. [ ] Add realistic users, products, payloads, and authentication.
+7. [ ] Add a `constant-arrival-rate` throughput test.
+8. [ ] Add spike and soak tests.
+9. [ ] Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
+10. [ ] Run tests against your own staging environment instead of `dummyjson.com`.
+11. [ ] Add CI regression thresholds and compare results between builds.

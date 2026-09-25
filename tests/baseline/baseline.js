@@ -9,6 +9,7 @@ export const options = {
   thresholds: {
     ...COMMON_THRESHOLDS,
     http_req_duration: ['p(95)<300'],
+    'http_req_duration{endpoint:product-details}': ['p(95)<300'],
   },
 };
 
