@@ -1,17 +1,21 @@
 [
   {
+    "id": 1,
     "username": "emilys",
     "password": "emilyspass"
   },
   {
+    "id": 2,
     "username": "michaelw",
     "password": "michaelwpass"
   },
   {
+    "id": 3,
     "username": "sophiab",
     "password": "sophiabpass"
   },
   {
+    "id": 4,
     "username": "jamesd",
     "password": "jamesdpass"
   }

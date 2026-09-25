@@ -7,12 +7,17 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
+    "api": "node server/api.js",
     "test:baseline": "k6 run tests/baseline/baseline.js",
     "test:journey": "k6 run tests/journeys/shopping.js",
     "test:load:shopping": "k6 run tests/load/shopping.js",
+    "test:load:peak": "k6 run tests/load/shopping-peak.js",
+    "test:load:soak": "k6 run tests/load/shopping-soak.js",
     "test:smoke": "k6 run tests/smoke/smoke.js",
     "test:load": "k6 run tests/load/load.js",
-    "test:stress": "k6 run tests/stress/stress.js"
+    "test:stress": "k6 run tests/stress/stress.js",
+    "test:stress:spike": "k6 run tests/stress/shopping-spike.js",
+    "test:stress:breakpoint": "k6 run tests/stress/shopping-breakpoint.js"
   },
   "devDependencies": {
     "eslint": "^9.39.5",

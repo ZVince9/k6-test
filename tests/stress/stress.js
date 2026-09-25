@@ -6,7 +6,7 @@ import {
   COMMON_THRESHOLDS,
   DEFAULT_HEADERS,
 } from '../../src/config.js';
-import { randomInt, logIfFailure, wait } from '../../src/helpers.js';
+import { randomInt, logIfFailure } from '../../src/helpers.js';
 
 export const options = {
   scenarios: {
@@ -31,8 +31,21 @@ export const options = {
 };
 
 export default function () {
+  const loginResponse = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({
+      username: 'emilys',
+      password: 'emilyspass',
+    }),
+    {
+      headers: DEFAULT_HEADERS,
+    },
+  );
+
+  const token = loginResponse.json('accessToken');
+  const userId = loginResponse.json('id');
   const payload = JSON.stringify({
-    userId: randomInt(1, 100),
+    userId,
     products: [
       {
         id: randomInt(1, 100),
@@ -42,7 +55,10 @@ export default function () {
   });
 
   const response = http.post(`${BASE_URL}/carts/add`, payload, {
-    headers: DEFAULT_HEADERS,
+    headers: {
+      ...DEFAULT_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   logIfFailure(response, 'POST /carts/add', 0.05);

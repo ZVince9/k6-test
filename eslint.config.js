@@ -12,6 +12,7 @@ export default [
         __ENV: 'readonly',
         open: 'readonly',
         console: 'readonly',
+        process: 'readonly',
       },
     },
     rules: {

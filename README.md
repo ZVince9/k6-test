@@ -37,19 +37,79 @@ This project is organized for k6 performance testing with separate scenarios for
 k6 run tests/smoke/smoke.js
 
 # baseline test
-BASE_URL=https://dummyjson.com npm run test:baseline
+npm run test:baseline
 
 # realistic shopping journey
-BASE_URL=https://dummyjson.com npm run test:journey
+npm run test:journey
 
 # shopping journey under load
-BASE_URL=https://dummyjson.com npm run test:load:shopping
+npm run test:load:shopping
 
 # load test
-BASE_URL=https://dummyjson.com k6 run tests/load/load.js
+k6 run tests/load/load.js
 
 # stress test
-BASE_URL=https://dummyjson.com k6 run tests/stress/stress.js
+k6 run tests/stress/stress.js
+```
+
+## Run the local performance API
+
+This repository includes a small in-memory API for load testing without DummyJSON rate limits. It does not require frontend pages or a database.
+
+`http://localhost:3000` is now the default `BASE_URL`, so all test commands target the local API unless you explicitly override it.
+
+Start it in a separate terminal:
+
+```bash
+npm run api
+```
+
+Verify it:
+
+```bash
+curl http://localhost:3000/products
+```
+
+Then run the shopping journey against it:
+
+```bash
+npm run test:journey
+npm run test:load:shopping
+```
+
+All existing k6 entrypoints can use the local API by setting `BASE_URL`:
+
+```bash
+npm run test:smoke
+npm run test:baseline
+npm run test:load
+npm run test:stress
+npm run test:load:peak
+npm run test:load:soak
+npm run test:stress:spike
+npm run test:stress:breakpoint
+```
+
+The local API supports:
+
+```text
+GET  /products
+GET  /products/:id
+POST /auth/login
+POST /carts/add
+GET  /carts/user/:id
+POST /checkout
+GET  /orders/:id
+```
+
+`GET /orders/:id` requires a bearer token and an order created by `POST /checkout`; `/orders/1` will not exist immediately after restarting the API.
+
+Data is stored in memory and resets when the API process restarts.
+
+To target another API for a specific run:
+
+```bash
+BASE_URL=https://your-staging-api.example.com npm run test:journey
 ```
 
 ## Common commands
@@ -132,7 +192,7 @@ Use `group()` for each business step and validate both HTTP status codes and res
 Run the initial DummyJSON journey with:
 
 ```bash
-BASE_URL=https://dummyjson.com npm run test:journey
+npm run test:journey
 ```
 
 The journey uses DummyJSON for browsing, login, and cart operations. Checkout and order verification are intentionally simulated because DummyJSON does not provide persistent checkout or order endpoints. Replace those two groups when connecting the test to your own API.
@@ -211,68 +271,56 @@ const profile = http.get(`${BASE_URL}/profile`, {
 });
 ```
 
-### Step 7: Add business metrics
+### Step 7: Add business metrics — Implemented
 
-Track business outcomes separately from HTTP outcomes:
+The shopping journey now records business outcomes separately from HTTP outcomes:
 
 - Successful checkouts
-- Failed checkouts
-- Created orders
 - Successful logins
 - Cart completion rate
+- Created simulated orders
 - Journey duration
 
-Use k6 `Rate`, `Counter`, and `Trend` metrics, then add thresholds such as:
+The metrics are:
+
+```js
+login_success
+cart_completion
+checkout_success
+orders_created
+shopping_journey_duration
+```
+
+The journey profile applies thresholds such as:
 
 ```js
 thresholds: {
+  login_success: ['rate>0.99'],
+  cart_completion: ['rate>0.99'],
   checkout_success: ['rate>0.99'],
-  checkout_duration: ['p(95)<1500'],
+  shopping_journey_duration: ['p(95)<2500'],
 }
 ```
 
-### Step 8: Add traffic models
+### Step 8: Add traffic models — Implemented
 
-Keep the existing smoke, load, and stress tests, then add these scenarios:
+The same shopping journey now has separate runnable traffic profiles:
 
-#### Baseline test
+| Profile | Command | Purpose |
+|---|---|---|
+| Average load | `npm run test:load:shopping` | Expected traffic ramp |
+| Peak load | `npm run test:load:peak` | Sustained high traffic |
+| Spike | `npm run test:stress:spike` | Sudden traffic increase and recovery |
+| Soak | `npm run test:load:soak` | Long-running stability test |
+| Breakpoint | `npm run test:stress:breakpoint` | Increase load in steps to find capacity |
 
-One or two virtual users for a short duration to measure normal behavior.
+The profiles reuse the same journey but change only the traffic model and, for stress tests, the acceptable failure thresholds. Run them against a controlled staging or performance environment rather than a public shared API.
 
-#### Average load test
+For a quick validation without running a full profile:
 
-Expected production traffic:
-
-```text
-10 minutes ramp-up
-30 minutes at normal traffic
-10 minutes ramp-down
+```bash
+k6 run --duration 2s tests/stress/shopping-spike.js
 ```
-
-#### Peak load test
-
-Expected traffic during a sale, campaign, or other known peak.
-
-#### Spike test
-
-Rapidly increase traffic to test autoscaling, connection pools, caches, queues, and recovery:
-
-```js
-stages: [
-  { duration: '1m', target: 10 },
-  { duration: '10s', target: 200 },
-  { duration: '2m', target: 200 },
-  { duration: '10s', target: 10 },
-]
-```
-
-#### Soak test
-
-Run at normal traffic for several hours to detect memory leaks, connection leaks, queue buildup, and gradual latency degradation.
-
-#### Breakpoint test
-
-Increase traffic in controlled steps and record the maximum stable load, the first degradation point, the first error-rate increase, the failure point, and recovery behavior.
 
 ### Step 9: Model users and throughput separately
 
@@ -331,10 +379,10 @@ Compare p50, p95, p99, throughput, error rate, check rate, business success rate
 2. [x] Add `checks` thresholds.
 3. [x] Build a realistic user journey.
 4. [x] Add endpoint and journey tags.
-5. [ ] Add custom business metrics.
+5. [x] Add custom business metrics.
 6. [x] Add realistic users, products, payloads, and authentication.
-7. [ ] Add a `constant-arrival-rate` throughput test.
-8. [ ] Add spike and soak tests.
+7. [x] Add peak, spike, soak, and breakpoint traffic profiles.
+8. [ ] Add a `constant-arrival-rate` throughput test.
 9. [ ] Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
 10. [ ] Run tests against your own staging environment instead of `dummyjson.com`.
 11. [ ] Add CI regression thresholds and compare results between builds.
