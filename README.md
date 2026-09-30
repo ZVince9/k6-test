@@ -327,20 +327,10 @@ k6 run --duration 2s tests/stress/shopping-spike.js
 Use `constant-vus` when the requirement is concurrent users. Use `constant-arrival-rate` when the requirement is a known number of transactions or requests per second:
 
 ```js
-export const options = {
-  scenarios: {
-    checkout_users: {
-      executor: 'constant-arrival-rate',
-      rate: 5,
-      timeUnit: '1s',
-      duration: '5m',
-      preAllocatedVUs: 10,
-      maxVUs: 50,
-      exec: 'checkout',
-    },
-  },
-};
+npm run test:load:throughput
 ```
+
+This profile starts two complete shopping journeys per second for one minute. It pre-allocates 10 virtual users, can scale to 50, and fails if k6 has to drop an iteration because it cannot start it on time. Tune the rate and VU limits for the target system; a journey is a sequence of requests, not one request.
 
 Use `ramping-arrival-rate` when throughput should increase gradually.
 
@@ -361,6 +351,15 @@ Record k6 metrics together with application and infrastructure metrics:
 
 The goal is to answer both “what did the user experience?” and “which component caused the degradation?”
 
+This repository does not include an application metrics backend or infrastructure dashboards. When testing a deployed service, open its existing monitoring dashboards during the run and correlate the k6 run time with application, database, cache, queue, and host/container metrics. To save k6 time-series locally for later analysis:
+
+```bash
+mkdir -p results
+k6 run --out json=results/throughput-metrics.json tests/load/shopping-throughput.js
+```
+
+Use the k6 output backend supported by your observability stack when you want live dashboards; configure that backend separately rather than treating k6 response metrics as a substitute for server-side telemetry.
+
 ### Step 11: Compare performance across builds
 
 Run a short smoke or baseline test for important pull requests, larger load tests nightly, and peak or soak tests before release:
@@ -373,6 +372,10 @@ Before release: peak, spike, soak, and breakpoint tests
 
 Compare p50, p95, p99, throughput, error rate, check rate, business success rate, and resource usage. Do not rely only on average response time because averages can hide tail latency.
 
+The GitHub Actions workflow in `.github/workflows/performance.yml` runs smoke and baseline tests when a pull request is opened. It does not run on later pushes to that pull request or on a schedule. You can also start it manually from the GitHub Actions tab using **Run workflow**; manual runs execute the same smoke and baseline tests. It uploads the k6 summary JSON as an artifact named with the commit SHA and run ID. The existing k6 thresholds also gate results against the configured latency and success targets.
+
+By default CI uses the included local API. To test a deployed staging API instead, set the repository Actions variable `K6_BASE_URL` to its base URL and ensure it provides the API routes and test accounts expected by this project. Keep heavier peak, spike, soak, and breakpoint runs for a controlled environment and run them manually or before a release.
+
 ### Recommended implementation order for this repository
 
 1. [x] Establish a repeatable baseline test.
@@ -382,7 +385,7 @@ Compare p50, p95, p99, throughput, error rate, check rate, business success rate
 5. [x] Add custom business metrics.
 6. [x] Add realistic users, products, payloads, and authentication.
 7. [x] Add peak, spike, soak, and breakpoint traffic profiles.
-8. [ ] Add a `constant-arrival-rate` throughput test.
-9. [ ] Connect k6 output to Grafana, Prometheus, InfluxDB, or another metrics backend.
-10. [ ] Run tests against your own staging environment instead of `dummyjson.com`.
-11. [ ] Add CI regression thresholds and compare results between builds.
+8. [x] Add a `constant-arrival-rate` throughput test.
+9. [ ] Connect k6 output and application telemetry to Grafana, Prometheus, InfluxDB, or another metrics backend.
+10. [ ] Configure a staging API and representative test accounts for automated runs.
+11. [x] Add CI performance thresholds and retain summaries for comparison between builds.
