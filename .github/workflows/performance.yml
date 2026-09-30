@@ -1,0 +1,50 @@
+name: Performance tests
+
+on:
+  pull_request:
+    types: [opened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ vars.K6_BASE_URL || 'http://localhost:3000' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: grafana/setup-k6-action@v1
+      - run: npm ci
+
+      - name: Start local test API
+        if: ${{ vars.K6_BASE_URL == '' }}
+        run: |
+          npm run api > server.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent "$BASE_URL/products" > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
+
+      - name: Run smoke and baseline tests
+        run: |
+          mkdir -p results
+          k6 run --summary-export=results/smoke.json tests/smoke/smoke.js
+          k6 run --summary-export=results/baseline.json tests/baseline/baseline.js
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results-${{ github.sha }}-${{ github.run_id }}
+          path: results/
+          if-no-files-found: ignore
+          retention-days: 30
