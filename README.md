@@ -394,6 +394,15 @@ By default CI uses the included local API. To test a deployed staging API instea
 
 To view a run, sign in to the Grafana Cloud stack that received it, open **Testing & synthetics → Performance**, then select the project and test run. You can share the run URL with teammates, but they must also have an account with access to the Grafana Cloud stack. Use Grafana's **Invite** control to grant them access; do not share your k6 API token or commit it to this repository. Access and invitations are managed in Grafana Cloud, not by this project.
 
+To send a test to a specific Grafana Cloud k6 project instead of the default project, copy that project's ID from its overview page and set `K6_CLOUD_PROJECT_ID` for the run. For example, to run the smoke test locally against the local API and stream results to project `8485141`:
+
+```bash
+K6_CLOUD_PROJECT_ID=8485141 \
+k6 cloud run --local-execution tests/smoke/smoke.js
+```
+
+Replace `8485141` with your project ID and the script path with any k6 test file. Keep the local API running for tests that target `localhost`. Grafana Cloud Free allows only one active test run at a time; wait for the current run to finish before starting another.
+
 All items in the current implementation order are complete. Potential future improvements are listed below.
 
 ### Future improvements
