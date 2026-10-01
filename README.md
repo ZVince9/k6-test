@@ -228,7 +228,7 @@ thresholds: {
 
 Checkout and order verification currently do not have HTTP endpoint thresholds because DummyJSON does not provide real checkout or order endpoints; those steps are simulated locally.
 
-### Step 5: Use realistic test data
+### Step 5: Use realistic test data — Implemented
 
 Create test users, products, search terms, cart sizes, and payloads that resemble production behavior. Avoid making every virtual user use the same account or record unless that is intentional.
 
@@ -322,7 +322,7 @@ For a quick validation without running a full profile:
 k6 run --duration 2s tests/stress/shopping-spike.js
 ```
 
-### Step 9: Model users and throughput separately
+### Step 9: Model users and throughput separately — Implemented
 
 Use `constant-vus` when the requirement is concurrent users. Use `constant-arrival-rate` when the requirement is a known number of transactions or requests per second:
 
@@ -360,7 +360,7 @@ k6 run --out json=results/throughput-metrics.json tests/load/shopping-throughput
 
 Use the k6 output backend supported by your observability stack when you want live dashboards; configure that backend separately rather than treating k6 response metrics as a substitute for server-side telemetry.
 
-### Step 11: Compare performance across builds
+### Step 11: Compare performance across builds — Implemented
 
 Run a short smoke or baseline test for important pull requests, larger load tests nightly, and peak or soak tests before release:
 
@@ -386,6 +386,17 @@ By default CI uses the included local API. To test a deployed staging API instea
 6. [x] Add realistic users, products, payloads, and authentication.
 7. [x] Add peak, spike, soak, and breakpoint traffic profiles.
 8. [x] Add a `constant-arrival-rate` throughput test.
-9. [ ] Connect k6 output and application telemetry to Grafana, Prometheus, InfluxDB, or another metrics backend.
-10. [ ] Configure a staging API and representative test accounts for automated runs.
-11. [x] Add CI performance thresholds and retain summaries for comparison between builds.
+9. [x] Connect k6 test results to Grafana Cloud.
+    - Authenticate the k6 CLI with `k6 cloud login`, then run tests locally and stream their results with `k6 cloud run --local-execution <test-file>`. This sends k6 test metrics to Grafana Cloud; application and infrastructure metrics are not connected.
+10. [x] Add CI performance thresholds and retain summaries for comparison between builds.
+
+### Viewing and sharing Grafana Cloud test results
+
+To view a run, sign in to the Grafana Cloud stack that received it, open **Testing & synthetics → Performance**, then select the project and test run. You can share the run URL with teammates, but they must also have an account with access to the Grafana Cloud stack. Use Grafana's **Invite** control to grant them access; do not share your k6 API token or commit it to this repository. Access and invitations are managed in Grafana Cloud, not by this project.
+
+All items in the current implementation order are complete. Potential future improvements are listed below.
+
+### Future improvements
+
+- Configure a staging API and dedicated test accounts, then use `K6_BASE_URL` in CI to run automated tests against that environment.
+- Connect application and infrastructure telemetry to Grafana Cloud so k6 results can be correlated with server-side metrics such as CPU, memory, database load, and error rates.
