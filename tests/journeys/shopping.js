@@ -17,11 +17,16 @@ const users = new SharedArray('shopping users', () =>
 export const loginSuccess = new Rate('login_success');
 export const cartCompletion = new Rate('cart_completion');
 export const checkoutSuccess = new Rate('checkout_success');
+export const orderVerification = new Rate('order_verification');
 export const ordersCreated = new Counter('orders_created');
 export const journeyDuration = new Trend('shopping_journey_duration');
 
 export function shoppingJourney() {
   const journeyStart = Date.now();
+  const finishJourney = () => {
+    journeyDuration.add(Date.now() - journeyStart);
+    sleep(1);
+  };
   const user = users[(__VU + __ITER) % users.length];
   let productId;
   let userId;
@@ -53,11 +58,11 @@ export function shoppingJourney() {
   });
 
   if (!productId) {
-    journeyDuration.add(Date.now() - journeyStart);
-    sleep(1);
+    finishJourney();
     return;
   }
 
+  let productDetailsPassed;
   group('2. view product details', () => {
     const response = http.get(`${BASE_URL}/products/${productId}`, {
       headers: DEFAULT_HEADERS,
@@ -66,12 +71,17 @@ export function shoppingJourney() {
 
     logIfFailure(response, 'GET /products/{id}', 0.1);
 
-    check(response, {
+    productDetailsPassed = check(response, {
       'product details return 200': (r) => r.status === 200,
       'product details contain a title': (r) =>
         r.status === 200 && Boolean(r.json('title')),
     });
   });
+
+  if (!productDetailsPassed) {
+    finishJourney();
+    return;
+  }
 
   group('3. log in', () => {
     const response = http.post(
@@ -102,8 +112,7 @@ export function shoppingJourney() {
   });
 
   if (!token || !userId) {
-    journeyDuration.add(Date.now() - journeyStart);
-    sleep(1);
+    finishJourney();
     return;
   }
 
@@ -137,17 +146,17 @@ export function shoppingJourney() {
     });
     cartCompletion.add(cartPassed);
 
-    if (response.status === 200 || response.status === 201) {
+    if (cartPassed) {
       cartId = response.json('id');
     }
   });
 
   if (!cartId) {
-    journeyDuration.add(Date.now() - journeyStart);
-    sleep(1);
+    finishJourney();
     return;
   }
 
+  let cartViewPassed;
   group('5. view cart', () => {
     const response = http.get(`${BASE_URL}/carts/user/${userId}`, {
       headers: authHeaders,
@@ -156,14 +165,24 @@ export function shoppingJourney() {
 
     logIfFailure(response, 'GET /carts/user/{id}', 0.1);
 
-    check(response, {
+    cartViewPassed = check(response, {
       'user carts return 200': (r) => r.status === 200,
-      'user carts contain carts': (r) =>
+      'user carts contain the created cart and selected product': (r) =>
         r.status === 200 &&
         Array.isArray(r.json('carts')) &&
-        r.json('carts').length > 0,
+        r.json('carts').some(
+          (cart) =>
+            cart.id === cartId &&
+            Array.isArray(cart.products) &&
+            cart.products.some((product) => product.id === productId),
+        ),
     });
   });
+
+  if (!cartViewPassed) {
+    finishJourney();
+    return;
+  }
 
   group('6. checkout', () => {
     const response = http.post(
@@ -191,6 +210,11 @@ export function shoppingJourney() {
     }
   });
 
+  if (!orderId) {
+    finishJourney();
+    return;
+  }
+
   group('7. verify order', () => {
     const response = http.get(`${BASE_URL}/orders/${orderId}`, {
       headers: authHeaders,
@@ -199,17 +223,17 @@ export function shoppingJourney() {
 
     logIfFailure(response, 'GET /orders/{id}', 0.1);
 
-    check(response, {
+    const orderVerified = check(response, {
       'order returns 200': (r) => r.status === 200,
       'order references the cart': (r) =>
         r.status === 200 && r.json('cartId') === cartId,
       'order contains the selected product': (r) =>
         r.status === 200 && r.json('products.0.id') === productId,
     });
+    orderVerification.add(orderVerified);
   });
 
-  journeyDuration.add(Date.now() - journeyStart);
-  sleep(1);
+  finishJourney();
 }
 
 export const SHOPPING_THRESHOLDS = {
@@ -225,6 +249,7 @@ export const SHOPPING_THRESHOLDS = {
   login_success: ['rate>0.99'],
   cart_completion: ['rate>0.99'],
   checkout_success: ['rate>0.99'],
+  order_verification: ['rate>0.99'],
   shopping_journey_duration: ['p(95)<2500'],
 };
 

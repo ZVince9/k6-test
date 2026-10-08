@@ -276,6 +276,7 @@ const profile = http.get(`${BASE_URL}/profile`, {
 The shopping journey now records business outcomes separately from HTTP outcomes:
 
 - Successful checkouts
+- Successful order verifications
 - Successful logins
 - Cart completion rate
 - Created simulated orders
@@ -288,6 +289,7 @@ login_success
 cart_completion
 checkout_success
 orders_created
+order_verification
 shopping_journey_duration
 ```
 
@@ -298,6 +300,7 @@ thresholds: {
   login_success: ['rate>0.99'],
   cart_completion: ['rate>0.99'],
   checkout_success: ['rate>0.99'],
+  order_verification: ['rate>0.99'],
   shopping_journey_duration: ['p(95)<2500'],
 }
 ```
